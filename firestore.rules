@@ -24,10 +24,15 @@ service cloud.firestore {
         allow read, list, create, update, delete: if isOwner(userId);
       }
 
-      // SecurityEvents subcollection
+      // SecurityEvents subcollection (for direct access)
       match /securityEvents/{eventId} {
-        allow read, list, create: if isOwner(userId);
+        allow read, create: if isOwner(userId);
       }
+    }
+    
+    // Allow collection group query for security events by any signed-in user
+    match /{path=**}/securityEvents/{eventId} {
+      allow list: if isSignedIn();
     }
   }
 }

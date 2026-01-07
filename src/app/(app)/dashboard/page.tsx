@@ -32,33 +32,46 @@ export default function DashboardPage() {
     if (!firestore) return null;
     // Use a collection group query to get events from all users.
     // This requires a Firestore index.
-    return collectionGroup(firestore, `securityEvents`);
+    return collectionGroup(firestore, 'securityEvents');
   }, [firestore]);
 
   const { data: allSecurityEvents, isLoading: eventsLoading } = useCollection<SecurityEvent>(securityEventsQuery);
 
   const [userProfiles, setUserProfiles] = useState<ThreatProfile[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
 
   useEffect(() => {
     async function analyzeProfiles() {
       if (users && allSecurityEvents) {
-        const profiles: ThreatProfile[] = [];
-        for (const u of users) {
-          // The userId in securityEvents is the email, match it with user's email
-          const userEvents = allSecurityEvents.filter((e) => e.userId === u.email);
-          
-          if (userEvents.length > 0) {
-            const result = await getThreatProfile({ securityEvents: userEvents });
-            if (result && !result.error) {
-              profiles.push({ ...u, ...result });
+        setIsAnalyzing(true);
+        const profiles: ThreatProfile[] = await Promise.all(
+          users.map(async (u) => {
+            // The userId in securityEvents is the user's auth UID.
+            const userEvents = allSecurityEvents.filter((e) => e.userId === u.id);
+            
+            if (userEvents.length > 0) {
+              const result = await getThreatProfile({ securityEvents: userEvents });
+              if (result && !result.error) {
+                return { ...u, ...result };
+              }
             }
-          }
-        }
+            // Return a default profile if no events or if there was an error
+            return { 
+              ...u, 
+              threatLevel: 'NORMAL', 
+              analysisSummary: 'No significant security events recorded.', 
+              suspiciousActivity: [] 
+            };
+          })
+        );
         setUserProfiles(profiles);
+        setIsAnalyzing(false);
+      } else if (!usersLoading && !eventsLoading) {
+        setIsAnalyzing(false);
       }
     }
     analyzeProfiles();
-  }, [users, allSecurityEvents]);
+  }, [users, allSecurityEvents, usersLoading, eventsLoading]);
 
 
   const highRiskProfiles = userProfiles.filter(
@@ -79,8 +92,8 @@ export default function DashboardPage() {
     }
   };
 
-  if (usersLoading || eventsLoading) {
-    return <p>Loading dashboard...</p>
+  if (usersLoading || eventsLoading || isAnalyzing) {
+    return <p className="p-4">Loading and analyzing dashboard...</p>
   }
 
   return (
@@ -167,7 +180,7 @@ export default function DashboardPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
+                  <TableHead>User ID</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead>Reason</TableHead>
@@ -176,7 +189,7 @@ export default function DashboardPage() {
               <TableBody>
                 {allSecurityEvents?.slice(0, 10).map((event) => (
                   <TableRow key={event.id}>
-                    <TableCell className="font-mono text-xs">{event.userId}</TableCell>
+                    <TableCell className="font-mono text-xs max-w-[120px] truncate">{event.userId}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{event.action}</Badge>
                     </TableCell>
