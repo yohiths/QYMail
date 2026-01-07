@@ -37,7 +37,7 @@ const ThreatProfileOutputSchema = z.object({
     .describe('A summary of the threat analysis, explaining the determined threat level based on behavior.'),
   suspiciousActivity: z.array(z.string()).describe('Specific suspicious activities that were detected.'),
 });
-export type ThreatProfileOutput = z_infer<typeof ThreatProfileOutputSchema>;
+export type ThreatProfileOutput = z.infer<typeof ThreatProfileOutputSchema>;
 
 const threatAnalysisPrompt = ai.definePrompt({
   name: 'threatAnalysisPrompt',
