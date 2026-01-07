@@ -19,12 +19,14 @@ import {
   PanelLeft,
   Shield,
   Mail,
+  Edit,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useUser } from '@/firebase';
 import { useEffect } from 'react';
+import { ComposeDialog } from '@/components/app/compose-dialog';
 
 const navLinks = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
@@ -90,15 +92,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           >
             <div
-              className={cn(
-                'flex h-14 items-center border-b px-4 lg:h-16 lg:px-6',
-                isSidebarCollapsed ? 'justify-center' : ''
-              )}
+              className={cn('flex flex-col p-2', isSidebarCollapsed ? 'px-2' : 'px-4')}
             >
-              <Link href="/inbox" className="flex items-center gap-2 font-semibold">
-                {isSidebarCollapsed ? <Mail className="h-6 w-6" /> : <Logo />}
-                <span className="sr-only">QYMail</span>
-              </Link>
+              <ComposeDialog>
+                <Button className={cn(isSidebarCollapsed ? 'w-10 h-10 p-0' : 'w-full')}>
+                  <Edit className={cn(!isSidebarCollapsed && 'mr-2')}/>
+                  {!isSidebarCollapsed && 'Compose'}
+                </Button>
+              </ComposeDialog>
+
             </div>
             <div className={cn('flex-1 p-2', isSidebarCollapsed ? 'px-2' : 'px-4')}>
               {navLinks.map((link) => {

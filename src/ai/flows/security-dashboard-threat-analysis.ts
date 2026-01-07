@@ -42,43 +42,62 @@ export type ThreatProfileOutput = z.infer<typeof ThreatProfileOutputSchema>;
 export async function analyzeSecurityEvents(
   input: ThreatProfileInput
 ): Promise<ThreatProfileOutput> {
+  const threatAnalysisFlow = ai.defineFlow(
+    {
+      name: 'threatAnalysisFlow',
+      inputSchema: ThreatProfileInputSchema,
+      outputSchema: ThreatProfileOutputSchema,
+    },
+    async (flowInput) => {
+      // Calculate derived statistics
+      const failedDecrypts = flowInput.securityEvents.filter(e => e.action === 'decrypt' && e.outcome === 'failure').length;
+      const unauthorizedAttempts = flowInput.securityEvents.filter(e => e.reason === 'unauthorized').length;
+      
+      const indicators = [];
+      if (failedDecrypts > 3) indicators.push('Multiple failed decryptions');
+      if (unauthorizedAttempts > 0) indicators.push('Unauthorized access attempts');
+      if (flowInput.securityEvents.some(e => e.reason === 'session_reused')) indicators.push('Reused session keys');
+
+
+      const promptInput = {
+        threatLevel: 'analyzing...',
+        failedDecrypts,
+        unauthorizedAttempts,
+        indicators: indicators.join(', ') || 'None',
+      }
+
+      const threatAnalysisPrompt = ai.definePrompt({
+        name: 'threatAnalysisPrompt',
+        input: {schema: z.any()},
+        output: {schema: ThreatProfileOutputSchema},
+        prompt: `You are a cybersecurity assistant analyzing access behavior in a zero-trust encrypted email system.
+
+Context:
+- Emails are encrypted using disposable keys.
+- Each email can be decrypted only once.
+- Decryption is allowed only for the intended receiver.
+- All access attempts are logged and analyzed.
+
+Security Profile:
+Threat Level: {{threatLevel}}
+Failed Decrypt Attempts: {{failedDecrypts}}
+Unauthorized Access Attempts: {{unauthorizedAttempts}}
+Indicators: {{indicators}}
+
+Task:
+1. Determine the Threat Level (NORMAL, SUSPICIOUS, HIGH RISK) based on the profile.
+2. Explain whether this behavior is normal or suspicious in the 'analysisSummary'.
+3. Describe what kind of attack or misuse (if any) this resembles.
+4. List the identified "Indicators" as 'suspiciousActivity'.
+
+Do NOT discuss email content.
+Focus only on access behavior and security risk.`,
+      });
+
+      const {output} = await threatAnalysisPrompt(promptInput);
+      return output!;
+    }
+  );
+
   return threatAnalysisFlow(input);
 }
-
-const threatAnalysisPrompt = ai.definePrompt({
-  name: 'threatAnalysisPrompt',
-  input: {schema: ThreatProfileInputSchema},
-  output: {schema: ThreatProfileOutputSchema},
-  prompt: `You are a security expert analyzing a user's security event log to build a threat profile. Your analysis is based on behavior, not email content.
-
-  The system is designed with these principles:
-  - Each email is encrypted with a unique, short-lived session key.
-  - Emails can only be decrypted once.
-  - Unauthorized access attempts are logged.
-
-  Threat Levels:
-  - NORMAL: Legitimate usage.
-  - SUSPICIOUS: Repeated failures or abnormal access patterns.
-  - HIGH RISK: Unauthorized decryption attempts detected.
-
-  Analyze the following security events and determine the user's threat profile.
-
-  Events:
-  {{#each securityEvents}}
-  - Action: {{action}}, Outcome: {{outcome}}{{#if reason}}, Reason: {{reason}}{{/if}}, Time: {{timestamp}}
-  {{/each}}
-
-  Based on these events, determine the threat level, provide a summary of your analysis, and list any specific suspicious activities. Focus on patterns like repeated failures, access to unauthorized emails, or attempts to reuse sessions.`,
-});
-
-const threatAnalysisFlow = ai.defineFlow(
-  {
-    name: 'threatAnalysisFlow',
-    inputSchema: ThreatProfileInputSchema,
-    outputSchema: ThreatProfileOutputSchema,
-  },
-  async input => {
-    const {output} = await threatAnalysisPrompt(input);
-    return output!;
-  }
-);

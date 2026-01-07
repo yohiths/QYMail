@@ -6,7 +6,9 @@ import { EmailDisplay } from '@/components/app/email-display';
 import type { Email } from '@/lib/types';
 import { useSearchParams } from 'next/navigation';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where } from 'firebase/firestore';
+import { DUMMY_EMAILS } from '@/lib/data';
 
 export default function InboxPage() {
   const searchParams = useSearchParams();
@@ -15,16 +17,41 @@ export default function InboxPage() {
 
   const emailsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, `users/${user.uid}/emails`), where('mailbox', '==', 'inbox'));
+    return query(
+      collection(firestore, `users/${user.uid}/emails`),
+      where('mailbox', '==', 'inbox')
+    );
   }, [firestore, user]);
-  
+
   const { data: inboxEmails, isLoading } = useCollection<Email>(emailsQuery);
 
+  React.useEffect(() => {
+    if (inboxEmails?.length === 0 && user && firestore) {
+      const recipient = {
+        name: user.displayName || 'User',
+        email: user.email || '',
+      };
+      DUMMY_EMAILS.forEach((email) => {
+        const emailData = {
+          ...email,
+          to: [recipient],
+          read: false,
+          mailbox: 'inbox' as const,
+        };
+        addDocumentNonBlocking(
+          collection(firestore, `users/${user.uid}/emails`),
+          emailData
+        );
+      });
+    }
+  }, [inboxEmails, user, firestore]);
+
   const selectedEmail =
-    (inboxEmails?.find((email) => email.id === selectedEmailId) as Email) || null;
-    
+    (inboxEmails?.find((email) => email.id === selectedEmailId) as Email) ||
+    null;
+
   if (isLoading) {
-    return <p>Loading emails...</p>
+    return <p className="p-4">Loading emails...</p>;
   }
 
   return (
