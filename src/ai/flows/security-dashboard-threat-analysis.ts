@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const SecurityEventSchema = z.object({
+const SecurityEventSchema = z.object({
   id: z.string(),
   userId: z.string(),
   action: z.enum(['send', 'decrypt']),
