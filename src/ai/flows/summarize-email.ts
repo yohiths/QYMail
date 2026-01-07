@@ -22,7 +22,8 @@ const SummarizeEmailOutputSchema = z.object({
 export type SummarizeEmailOutput = z.infer<typeof SummarizeEmailOutputSchema>;
 
 export async function summarizeEmail(input: SummarizeEmailInput): Promise<SummarizeEmailOutput> {
-  return summarizeEmailFlow(input);
+  const {output} = await summarizeEmailPrompt(input);
+  return output!;
 }
 
 const summarizeEmailPrompt = ai.definePrompt({
@@ -31,15 +32,3 @@ const summarizeEmailPrompt = ai.definePrompt({
   output: {schema: SummarizeEmailOutputSchema},
   prompt: `You are an AI assistant that summarizes emails.  Provide a concise summary of the following email content. The summary should capture the main points and purpose of the email in a few sentences.\n\nEmail Content:\n{{{emailContent}}}`,
 });
-
-const summarizeEmailFlow = ai.defineFlow(
-  {
-    name: 'summarizeEmailFlow',
-    inputSchema: SummarizeEmailInputSchema,
-    outputSchema: SummarizeEmailOutputSchema,
-  },
-  async input => {
-    const {output} = await summarizeEmailPrompt(input);
-    return output!;
-  }
-);

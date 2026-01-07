@@ -37,40 +37,13 @@ const ThreatProfileOutputSchema = z.object({
     .describe('A summary of the threat analysis, explaining the determined threat level based on behavior.'),
   suspiciousActivity: z.array(z.string()).describe('Specific suspicious activities that were detected.'),
 });
-export type ThreatProfileOutput = z.infer<typeof ThreatProfileOutputSchema>;
+export type ThreatProfileOutput = z_infer<typeof ThreatProfileOutputSchema>;
 
-export async function analyzeSecurityEvents(
-  input: ThreatProfileInput
-): Promise<ThreatProfileOutput> {
-  const threatAnalysisFlow = ai.defineFlow(
-    {
-      name: 'threatAnalysisFlow',
-      inputSchema: ThreatProfileInputSchema,
-      outputSchema: ThreatProfileOutputSchema,
-    },
-    async (flowInput) => {
-      // Calculate derived statistics
-      const failedDecrypts = flowInput.securityEvents.filter(e => e.action === 'decrypt' && e.outcome === 'failure').length;
-      const unauthorizedAttempts = flowInput.securityEvents.filter(e => e.reason === 'unauthorized').length;
-      
-      const indicators = [];
-      if (failedDecrypts > 3) indicators.push('Multiple failed decryptions');
-      if (unauthorizedAttempts > 0) indicators.push('Unauthorized access attempts');
-      if (flowInput.securityEvents.some(e => e.reason === 'session_reused')) indicators.push('Reused session keys');
-
-
-      const promptInput = {
-        threatLevel: 'analyzing...',
-        failedDecrypts,
-        unauthorizedAttempts,
-        indicators: indicators.join(', ') || 'None',
-      }
-
-      const threatAnalysisPrompt = ai.definePrompt({
-        name: 'threatAnalysisPrompt',
-        input: {schema: z.any()},
-        output: {schema: ThreatProfileOutputSchema},
-        prompt: `You are a cybersecurity assistant analyzing access behavior in a zero-trust encrypted email system.
+const threatAnalysisPrompt = ai.definePrompt({
+  name: 'threatAnalysisPrompt',
+  input: {schema: z.any()},
+  output: {schema: ThreatProfileOutputSchema},
+  prompt: `You are a cybersecurity assistant analyzing access behavior in a zero-trust encrypted email system.
 
 Context:
 - Emails are encrypted using disposable keys.
@@ -92,12 +65,26 @@ Task:
 
 Do NOT discuss email content.
 Focus only on access behavior and security risk.`,
-      });
+});
 
-      const {output} = await threatAnalysisPrompt(promptInput);
-      return output!;
-    }
-  );
+export async function analyzeSecurityEvents(
+  input: ThreatProfileInput
+): Promise<ThreatProfileOutput> {
+  const failedDecrypts = input.securityEvents.filter(e => e.action === 'decrypt' && e.outcome === 'failure').length;
+  const unauthorizedAttempts = input.securityEvents.filter(e => e.reason === 'unauthorized').length;
+  
+  const indicators = [];
+  if (failedDecrypts > 3) indicators.push('Multiple failed decryptions');
+  if (unauthorizedAttempts > 0) indicators.push('Unauthorized access attempts');
+  if (input.securityEvents.some(e => e.reason === 'session_reused')) indicators.push('Reused session keys');
 
-  return threatAnalysisFlow(input);
+  const promptInput = {
+    threatLevel: 'analyzing...',
+    failedDecrypts,
+    unauthorizedAttempts,
+    indicators: indicators.join(', ') || 'None',
+  };
+
+  const {output} = await threatAnalysisPrompt(promptInput);
+  return output!;
 }
