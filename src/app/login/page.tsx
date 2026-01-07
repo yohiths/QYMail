@@ -1,9 +1,26 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/app/logo';
-import Link from 'next/link';
+import { useAuth } from '@/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      router.push('/inbox');
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -16,8 +33,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            <Button asChild size="lg" className="w-full bg-primary hover:bg-primary/90">
-              <Link href="/inbox">
+            <Button onClick={handleGoogleSignIn} size="lg" className="w-full bg-primary hover:bg-primary/90">
                 <svg
                   className="mr-2 size-4"
                   aria-hidden="true"
@@ -34,17 +50,16 @@ export default function LoginPage() {
                   ></path>
                 </svg>
                 Sign in with Google
-              </Link>
             </Button>
             <p className="px-8 text-center text-sm text-muted-foreground">
               By clicking continue, you agree to our{' '}
-              <Link href="#" className="underline underline-offset-4 hover:text-primary">
+              <a href="#" className="underline underline-offset-4 hover:text-primary">
                 Terms of Service
-              </Link>{' '}
+              </a>{' '}
               and{' '}
-              <Link href="#" className="underline underline-offset-4 hover:text-primary">
+              <a href="#" className="underline underline-offset-4 hover:text-primary">
                 Privacy Policy
-              </Link>
+              </a>
               .
             </p>
           </div>

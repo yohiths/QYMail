@@ -1,193 +1,29 @@
-/**
- * @fileoverview Firestore Security Rules
- *
- * @description
- * This ruleset enforces a strict, user-centric security model where all data is
- * privately owned by the user who created it. The rules are designed for rapid
- * prototyping, focusing on robust authorization while remaining flexible on
- * data schema validation.
- *
- * @philosophy
- * Core Philosophy: A user can only ever read or write their own documents. There
- * is no concept of public data, shared data, or admin roles. This is a pure
- * user-ownership model.
- *
- * Data Structure: All application data is hierarchically nested under the
- * `/users/{userId}` path. For example, a user's emails are located at
- * `/users/{userId}/emails/{emailId}`. This structure inherently scopes all data
- * to a specific user, making security rules simple and performant.
- *
- * Key Security Decisions:
- * - User data is private: Access to any document under `/users/{userId}` is
- *   restricted to the authenticated user whose UID matches `{userId}`.
- * - No user enumeration: Listing the top-level `/users` collection is explicitly
- *   disallowed to protect user privacy and prevent data scraping.
- * - Path-based authorization: The document path itself contains the owner's ID,
- *   which is used for all security decisions. This avoids slow and costly `get()`
- *   calls to other documents for authorization checks.
- * - Relational Integrity: On document creation, rules validate that key IDs
- *   (like `userId` or `emailId`) are correctly set in the document body to match
- *   the document's path, ensuring data consistency. These IDs are immutable
- *   after creation.
- */
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ----------------------------------------------------------------------
-    // Helper Functions
-    // ----------------------------------------------------------------------
-
-    /**
-     * Checks if a user is authenticated.
-     */
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently signed-in user is the owner of the resource.
-     * @param userId The UID of the user to check against.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Checks for ownership on an existing document. Used for update and delete.
-     * @param userId The UID of the user to check against.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * Validates that the user document being created has its 'id' field
-     * set to match the document's path ID (the user's UID).
-     */
-    function hasValidUserDataOnCreate(userId) {
-      return request.resource.data.id == userId;
-    }
-
-    /**
-     * Enforces that the 'id' field of a user document cannot be changed.
-     */
-    function isUserDataImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
-    /**
-     * Validates that an email document being created has its 'userId' field
-     * set to match the user's UID from the path.
-     */
-    function hasValidEmailDataOnCreate(userId) {
-      return request.resource.data.userId == userId;
-    }
-
-
-
-    /**
-     * Enforces that the 'userId' field of an email document cannot be changed.
-     */
-    function isEmailDataImmutable() {
-      return request.resource.data.userId == resource.data.userId;
-    }
-
-    /**
-     * Validates that subcollection documents (attachments, summaries, etc.)
-     * have their 'emailId' field set to match the parent email document's ID.
-     */
-    function hasValidEmailSubcollectionDataOnCreate(emailId) {
-      return request.resource.data.emailId == emailId;
-    }
-
-    /**
-     * Enforces that the 'emailId' field of a subcollection document
-     * (attachments, summaries, etc.) cannot be changed.
-     */
-    function isEmailSubcollectionDataImmutable() {
-      return request.resource.data.emailId == resource.data.emailId;
-    }
-
-    // ----------------------------------------------------------------------
-    // Collection Rules
-    // ----------------------------------------------------------------------
-
-    /**
-     * @description Controls access to user profile documents.
-     * @path /users/{userId}
-     * @allow (create) An authenticated user can create their own user profile document. `auth.uid` must match `{userId}`.
-     * @allow (get, update, delete) An authenticated user can read, update, or delete their own user profile.
-     * @deny (list) Listing all users is forbidden to protect privacy.
-     * @deny (get) A user cannot read another user's profile.
-     * @principle Restricts access to a user's own data tree and prevents user enumeration.
-     */
+    // Users collection
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId) && hasValidUserDataOnCreate(userId);
-      allow update: if isExistingOwner(userId) && isUserDataImmutable();
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
 
-      /**
-       * @description Controls access to a user's emails.
-       * @path /users/{userId}/emails/{emailId}
-       * @allow (create, get, list, update, delete) The user can manage their own emails.
-       * @deny (create) A user cannot create an email under another user's account.
-       * @principle Enforces strict data ownership via path-based security.
-       */
+      // Emails subcollection
       match /emails/{emailId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId) && hasValidEmailDataOnCreate(userId);
-        allow update: if isExistingOwner(userId) && isEmailDataImmutable();
-        allow delete: if isExistingOwner(userId);
+        allow read, list, create, update, delete: if isOwner(userId);
+      }
 
-        /**
-         * @description Controls access to email attachments.
-         * @path /users/{userId}/emails/{emailId}/attachments/{attachmentId}
-         * @allow (create, get, list, update, delete) The user can manage attachments for their own emails.
-         * @deny (get) A user cannot access attachments for an email that does not belong to them.
-         * @principle Inherits ownership from the parent user document path.
-         */
-        match /attachments/{attachmentId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidEmailSubcollectionDataOnCreate(emailId);
-          allow update: if isExistingOwner(userId) && isEmailSubcollectionDataImmutable();
-          allow delete: if isExistingOwner(userId);
-        }
-
-        /**
-         * @description Controls access to email summaries.
-         * @path /users/{userId}/emails/{emailId}/summaries/{summaryId}
-         * @allow (create, get, list, update, delete) The user can manage summaries for their own emails.
-         * @deny (get) A user cannot access summaries for an email that does not belong to them.
-         * @principle Inherits ownership from the parent user document path.
-         */
-        match /summaries/{summaryId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidEmailSubcollectionDataOnCreate(emailId);
-          allow update: if isExistingOwner(userId) && isEmailSubcollectionDataImmutable();
-          allow delete: if isExistingOwner(userId);
-        }
-
-        /**
-         * @description Controls access to email security analyses.
-         * @path /users/{userId}/emails/{emailId}/securityAnalyses/{securityAnalysisId}
-         * @allow (create, get, list, update, delete) The user can manage security analyses for their own emails.
-         * @deny (get) A user cannot access security analyses for an email that does not belong to them.
-         * @principle Inherits ownership from the parent user document path.
-         */
-        match /securityAnalyses/{securityAnalysisId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidEmailSubcollectionDataOnCreate(emailId);
-          allow update: if isExistingOwner(userId) && isEmailSubcollectionDataImmutable();
-          allow delete: if isExistingOwner(userId);
-        }
+      // SecurityEvents subcollection
+      match /securityEvents/{eventId} {
+        allow read, list, create: if isOwner(userId);
       }
     }
   }

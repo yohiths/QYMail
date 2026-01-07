@@ -15,15 +15,16 @@ import {
   Inbox,
   Send,
   Trash2,
-  File,
   Search,
   PanelLeft,
   Shield,
   Mail,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
+import { useUser } from '@/firebase';
+import { useEffect } from 'react';
 
 const navLinks = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
@@ -35,6 +36,22 @@ const navLinks = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const pathname = usePathname();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={0}>

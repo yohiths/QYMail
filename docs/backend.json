@@ -1,18 +1,13 @@
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
       "description": "Represents a user account within the application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "googleId": {
-          "type": "string",
-          "description": "The unique identifier from Google for the user."
+          "description": "Unique identifier for the User entity (matches Firebase Auth UID)."
         },
         "email": {
           "type": "string",
@@ -21,9 +16,13 @@
         },
         "displayName": {
           "type": "string",
-          "description": "The user's display name as provided by Google."
+          "description": "The user's display name."
         },
-        "creationDate": {
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture."
+        },
+        "createdAt": {
           "type": "string",
           "description": "The date and time the user account was created.",
           "format": "date-time"
@@ -31,14 +30,12 @@
       },
       "required": [
         "id",
-        "googleId",
         "email",
         "displayName",
-        "creationDate"
+        "createdAt"
       ]
     },
     "Email": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Email",
       "type": "object",
       "description": "Represents an email message.",
@@ -47,159 +44,92 @@
           "type": "string",
           "description": "Unique identifier for the Email entity."
         },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Email)"
+        "fromName": {
+          "type": "string"
         },
-        "sender": {
-          "type": "string",
-          "description": "Email address of the sender."
+        "fromEmail": {
+          "type": "string"
         },
-        "recipients": {
+        "to": {
           "type": "array",
-          "description": "Email addresses of the recipients.",
           "items": {
             "type": "string"
           }
         },
         "subject": {
-          "type": "string",
-          "description": "Subject of the email."
+          "type": "string"
         },
         "body": {
-          "type": "string",
-          "description": "Body content of the email."
+          "type": "string"
         },
-        "dateReceived": {
+        "date": {
           "type": "string",
-          "description": "Date and time the email was received.",
           "format": "date-time"
         },
-        "attachmentIds": {
-          "type": "array",
-          "description": "References to Attachments. (Relationship: Email 1:N Attachment)",
-          "items": {
-            "type": "string"
-          }
+        "read": {
+          "type": "boolean"
+        },
+        "mailbox": {
+          "type": "string",
+          "enum": ["inbox", "sent", "trash", "spam"]
         }
       },
       "required": [
         "id",
-        "userId",
-        "sender",
-        "recipients",
+        "fromName",
+        "fromEmail",
+        "to",
         "subject",
         "body",
-        "dateReceived"
+        "date",
+        "read",
+        "mailbox"
       ]
     },
-    "Attachment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Attachment",
+    "SecurityEvent": {
+      "title": "SecurityEvent",
       "type": "object",
-      "description": "Represents an attachment to an email.",
+      "description": "Represents a security-related event.",
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Unique identifier for the Attachment entity."
+          "type": "string"
         },
-        "emailId": {
+        "action": {
           "type": "string",
-          "description": "Reference to Email. (Relationship: Email 1:N Attachment)"
+          "enum": ["send", "decrypt"]
         },
-        "filename": {
+        "outcome": {
           "type": "string",
-          "description": "Name of the attachment file."
+          "enum": ["success", "failure"]
         },
-        "contentType": {
+        "reason": {
           "type": "string",
-          "description": "MIME type of the attachment."
+          "enum": ["unauthorized", "session_expired", "session_reused", "not_found"]
         },
-        "data": {
+        "timestamp": {
           "type": "string",
-          "description": "Base64 encoded data of the attachment."
-        }
-      },
-      "required": [
-        "id",
-        "emailId",
-        "filename",
-        "contentType",
-        "data"
-      ]
-    },
-    "Summary": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Summary",
-      "type": "object",
-      "description": "Represents a summary of an email, generated by AI.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Summary entity."
-        },
-        "emailId": {
-          "type": "string",
-          "description": "Reference to Email. (Relationship: Email 1:1 Summary)"
-        },
-        "summaryText": {
-          "type": "string",
-          "description": "The summarized text of the email."
-        },
-        "generationDate": {
-          "type": "string",
-          "description": "Date and time the summary was generated.",
           "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "emailId",
-        "summaryText",
-        "generationDate"
-      ]
-    },
-    "SecurityAnalysis": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SecurityAnalysis",
-      "type": "object",
-      "description": "Represents a security analysis of an email, generated by AI.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SecurityAnalysis entity."
         },
         "emailId": {
-          "type": "string",
-          "description": "Reference to Email. (Relationship: Email 1:1 SecurityAnalysis)"
+          "type": "string"
         },
-        "threatLevel": {
-          "type": "string",
-          "description": "The identified threat level (e.g., High, Medium, Low)."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the potential threats identified."
-        },
-        "analysisDate": {
-          "type": "string",
-          "description": "Date and time the security analysis was performed.",
-          "format": "date-time"
+        "emailSubject": {
+          "type": "string"
         }
       },
       "required": [
         "id",
+        "action",
+        "outcome",
+        "timestamp",
         "emailId",
-        "threatLevel",
-        "description",
-        "analysisDate"
+        "emailSubject"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
@@ -211,13 +141,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profiles. Only the authenticated user can access their profile.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            }
-          ]
+          "description": "Stores user profiles."
         }
       },
       {
@@ -227,92 +151,19 @@
           "schema": {
             "$ref": "#/backend/entities/Email"
           },
-          "description": "Stores emails associated with a specific user. Path-based ownership ensures only the user can access their emails.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "emailId",
-              "description": "The unique ID of the email."
-            }
-          ]
+          "description": "Stores emails for a user."
         }
       },
       {
-        "path": "/users/{userId}/emails/{emailId}/attachments/{attachmentId}",
+        "path": "/users/{userId}/securityEvents/{eventId}",
         "definition": {
-          "entityName": "Attachment",
+          "entityName": "SecurityEvent",
           "schema": {
-            "$ref": "#/backend/entities/Attachment"
+            "$ref": "#/backend/entities/SecurityEvent"
           },
-          "description": "Stores attachments associated with a specific email. Path-based ownership ensures only the user can access their attachments.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "emailId",
-              "description": "The unique ID of the email."
-            },
-            {
-              "name": "attachmentId",
-              "description": "The unique ID of the attachment."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/emails/{emailId}/summaries/{summaryId}",
-        "definition": {
-          "entityName": "Summary",
-          "schema": {
-            "$ref": "#/backend/entities/Summary"
-          },
-          "description": "Stores summaries associated with a specific email. Path-based ownership ensures only the user can access their summaries.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "emailId",
-              "description": "The unique ID of the email."
-            },
-            {
-              "name": "summaryId",
-              "description": "The unique ID of the summary."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/emails/{emailId}/securityAnalyses/{securityAnalysisId}",
-        "definition": {
-          "entityName": "SecurityAnalysis",
-          "schema": {
-            "$ref": "#/backend/entities/SecurityAnalysis"
-          },
-          "description": "Stores security analyses associated with a specific email. Path-based ownership ensures only the user can access their security analyses.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "emailId",
-              "description": "The unique ID of the email."
-            },
-            {
-              "name": "securityAnalysisId",
-              "description": "The unique ID of the security analysis."
-            }
-          ]
+          "description": "Stores security events for a user."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, following the DBAC principle (Database-Based Access Control). It leverages path-based ownership and structural segregation for security and simplicity.\n\n1.  **Users Collection:** Stores user profiles. Access is restricted to the authenticated user only.\n2.  **User-Owned Emails:** Emails are stored as subcollections under each user's document (`/users/{userId}/emails/{emailId}`). This enforces ownership and simplifies security rules.\n3.  **Nested Email Data:** Attachments, summaries, and security analyses are further nested as subcollections under the emails collection. Again, path-based ownership guarantees only the user can access them.\n\n**Authorization Independence (Denormalization):** This design avoids `get()` calls in security rules by embedding authorization context directly within document paths. For example, access to `/users/{userId}/emails/{emailId}` is implicitly granted only to the user with ID `{userId}`.\n\n**QAPs (Rules are not Filters):** The path-based structure allows secure list operations. Listing emails under `/users/{userId}/emails` is secure because the database structure itself guarantees that only the authenticated user's emails are present in that subcollection. Similarly for attachments, summaries, and security analyses.\n\n**Security Considerations:** Every collection enforces security rules to ensure that data can only be accessed by the authenticated user, eliminating the possibility of unauthorized data access or manipulation. All subcollections inherit the path-based ownership from the parent user document, which maintains atomic operations and data integrity."
+    ]
   }
 }

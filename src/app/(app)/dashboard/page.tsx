@@ -1,31 +1,61 @@
+'use client';
+
 import { getThreatProfile } from '@/app/actions';
-import { securityEvents } from '@/lib/data';
-import type { SecurityEvent } from '@/lib/types';
+import type { SecurityEvent, UserProfile } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ShieldAlert, Fingerprint, Shield, UserX, Clock, Siren } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Fingerprint, Siren } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 
-interface UserProfile {
-  userId: string;
+interface ThreatProfile extends UserProfile {
   threatLevel: 'NORMAL' | 'SUSPICIOUS' | 'HIGH RISK';
   analysisSummary: string;
   suspiciousActivity: string[];
 }
 
-export default async function DashboardPage() {
-  const users = [...new Set(securityEvents.map((e) => e.userId))];
-  const userProfiles: UserProfile[] = [];
+export default function DashboardPage() {
+  const { firestore, user } = useFirebase();
+  
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
+  
+  const { data: users, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
 
-  for (const userId of users) {
-    const events = securityEvents.filter((e) => e.userId === userId);
-    const result = await getThreatProfile({ securityEvents: events });
-    if (result && !result.error) {
-      userProfiles.push({ userId, ...result });
+  const securityEventsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, `users/${user.uid}/securityEvents`);
+  }, [firestore, user]);
+
+  const { data: securityEvents, isLoading: eventsLoading } = useCollection<SecurityEvent>(securityEventsQuery);
+
+  const [userProfiles, setUserProfiles] = useState<ThreatProfile[]>([]);
+
+  useEffect(() => {
+    async function analyzeProfiles() {
+      if (users && securityEvents) {
+        const profiles: ThreatProfile[] = [];
+        for (const u of users) {
+          const userEvents = securityEvents.filter((e) => e.userId === u.email);
+          if (userEvents.length > 0) {
+            const result = await getThreatProfile({ securityEvents: userEvents });
+            if (result && !result.error) {
+              profiles.push({ ...u, ...result });
+            }
+          }
+        }
+        setUserProfiles(profiles);
+      }
     }
-  }
+    analyzeProfiles();
+  }, [users, securityEvents]);
+
 
   const highRiskProfiles = userProfiles.filter(
     (p) => p.threatLevel === 'HIGH RISK'
@@ -34,18 +64,7 @@ export default async function DashboardPage() {
     (p) => p.threatLevel === 'SUSPICIOUS'
   );
 
-  const getThreatLevelVariant = (level: UserProfile['threatLevel']) => {
-    switch (level) {
-      case 'HIGH RISK':
-        return 'destructive';
-      case 'SUSPICIOUS':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
-  
-    const getThreatLevelClass = (level: UserProfile['threatLevel']) => {
+  const getThreatLevelClass = (level: ThreatProfile['threatLevel']) => {
     switch (level) {
       case 'HIGH RISK':
         return 'bg-destructive/10 text-destructive';
@@ -56,6 +75,9 @@ export default async function DashboardPage() {
     }
   };
 
+  if (usersLoading || eventsLoading) {
+    return <p>Loading dashboard...</p>
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -71,7 +93,7 @@ export default async function DashboardPage() {
             <CardDescription>Total number of users analyzed.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{userProfiles.length}</p>
+            <p className="text-4xl font-bold">{users?.length || 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -103,11 +125,11 @@ export default async function DashboardPage() {
           <CardContent className="space-y-6">
             {userProfiles.length > 0 ? (
               userProfiles.map((profile) => (
-                <div key={profile.userId}>
+                <div key={profile.id}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                        <Fingerprint className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-mono text-sm">{profile.userId}</span>
+                      <span className="font-mono text-sm">{profile.email}</span>
                     </div>
                      <Badge className={cn('text-xs', getThreatLevelClass(profile.threatLevel))}>
                       {profile.threatLevel}
@@ -148,7 +170,7 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {securityEvents.slice(0, 10).map((event) => (
+                {securityEvents?.slice(0, 10).map((event) => (
                   <TableRow key={event.id}>
                     <TableCell className="font-mono text-xs">{event.userId}</TableCell>
                     <TableCell>
