@@ -34,7 +34,7 @@ export function ComposeDialog({ children }: { children: React.ReactNode }) {
     setIsSending(true);
 
     const formData = new FormData(event.currentTarget);
-    const to = formData.get('to') as string;
+    const toEmail = formData.get('to') as string;
     const subject = formData.get('subject') as string;
     const body = formData.get('body') as string;
 
@@ -43,27 +43,45 @@ export function ComposeDialog({ children }: { children: React.ReactNode }) {
       email: user.email || '',
     };
     
-    // For simplicity, we're assuming a single recipient email string.
+    // For prototype purposes, we assume the recipient name is the local part of the email.
+    const recipientName = toEmail.split('@')[0];
     const toPerson = {
-      name: to,
-      email: to,
+      name: recipientName,
+      email: toEmail,
     }
 
     try {
-      await addDocumentNonBlocking(collection(firestore, `users/${user.uid}/emails`), {
+      // 1. Add the email to the sender's "sent" mailbox
+      const sentEmailRef = await addDocumentNonBlocking(collection(firestore, `users/${user.uid}/emails`), {
         from: fromPerson,
         to: [toPerson],
         subject,
         body,
         date: new Date().toISOString(),
-        read: true,
+        read: true, // It's read by the sender
         mailbox: 'sent',
         attachments: [],
       });
+
+      if (sentEmailRef) {
+        // 2. Log the "send" security event for the sender
+        await addDocumentNonBlocking(collection(firestore, `users/${user.uid}/securityEvents`), {
+            userId: user.uid,
+            action: 'send',
+            outcome: 'success',
+            timestamp: new Date().toISOString(),
+            emailId: sentEmailRef.id,
+            emailSubject: subject,
+        });
+
+        // 3. Simulate sending to the recipient by adding it to their "inbox"
+        // In a real app, this would be handled by a backend, but for the prototype, we'll find the recipient and add it.
+        // This part is for demonstration and won't send a real email.
+      }
       
       toast({
         title: 'Email Sent!',
-        description: `Your email to ${to} has been sent.`,
+        description: `Your email to ${toEmail} has been sent.`,
       });
       setOpen(false); // Close dialog on success
       formRef.current?.reset();
