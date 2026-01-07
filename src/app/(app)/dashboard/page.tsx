@@ -7,10 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Fingerprint, Siren } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup } from 'firebase/firestore';
+import { collection, collectionGroup } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface ThreatProfile extends UserProfile {
   threatLevel: 'NORMAL' | 'SUSPICIOUS' | 'HIGH RISK';
@@ -19,7 +19,7 @@ interface ThreatProfile extends UserProfile {
 }
 
 export default function DashboardPage() {
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
   
   const usersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -31,7 +31,6 @@ export default function DashboardPage() {
   const securityEventsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     // Use a collection group query to get events from all users.
-    // This requires a Firestore index.
     return collectionGroup(firestore, 'securityEvents');
   }, [firestore]);
 
@@ -46,7 +45,7 @@ export default function DashboardPage() {
         setIsAnalyzing(true);
         const profiles: ThreatProfile[] = await Promise.all(
           users.map(async (u) => {
-            // The userId in securityEvents is the user's auth UID.
+            // The `userId` in securityEvents corresponds to the document ID in the `users` collection, which is the auth UID.
             const userEvents = allSecurityEvents.filter((e) => e.userId === u.id);
             
             if (userEvents.length > 0) {
@@ -67,6 +66,10 @@ export default function DashboardPage() {
         setUserProfiles(profiles);
         setIsAnalyzing(false);
       } else if (!usersLoading && !eventsLoading) {
+        // Handle case where there are no users or no events
+        if (users && users.length === 0) {
+           setUserProfiles([]);
+        }
         setIsAnalyzing(false);
       }
     }
