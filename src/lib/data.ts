@@ -1,4 +1,4 @@
-import type { Email } from './types';
+import type { Email, SecurityEvent } from './types';
 
 export const emails: Email[] = [
   {
@@ -89,4 +89,15 @@ export const emails: Email[] = [
     attachments: [],
     mailbox: 'sent',
   },
+];
+
+export const securityEvents: SecurityEvent[] = [
+  { id: 'evt1', userId: 'user@qymail.com', action: 'decrypt', outcome: 'success', timestamp: '2024-05-20T10:01:00Z', emailId: '1', emailSubject: 'Project Update' },
+  { id: 'evt2', userId: 'user@qymail.com', action: 'decrypt', outcome: 'failure', reason: 'unauthorized', timestamp: '2024-05-20T11:05:00Z', emailId: 'unknown', emailSubject: 'Access to Charlie\'s mail' },
+  { id: 'evt3', userId: 'user@qymail.com', action: 'send', outcome: 'success', timestamp: '2024-05-18T14:00:00Z', emailId: '4', emailSubject: 'Re: Meeting Notes' },
+  { id: 'evt4', userId: 'attacker@evil.com', action: 'decrypt', outcome: 'failure', reason: 'unauthorized', timestamp: '2024-05-19T09:15:00Z', emailId: '2', emailSubject: 'Lunch tomorrow?' },
+  { id: 'evt5', userId: 'attacker@evil.com', action: 'decrypt', outcome: 'failure', reason: 'unauthorized', timestamp: '2024-05-19T09:16:00Z', emailId: '2', emailSubject: 'Lunch tomorrow?' },
+  { id: 'evt6', userId: 'user@qymail.com', action: 'decrypt', outcome: 'failure', reason: 'session_reused', timestamp: '2024-05-20T10:02:00Z', emailId: '1', emailSubject: 'Project Update' },
+  { id: 'evt7', userId: 'user@qymail.com', action: 'decrypt', outcome: 'success', timestamp: '2024-05-20T09:31:00Z', emailId: '2', emailSubject: 'Lunch tomorrow?' },
+  { id: 'evt8', userId: 'attacker@evil.com', action: 'decrypt', outcome: 'failure', reason: 'session_expired', timestamp: '2024-05-21T10:00:00Z', emailId: '1', emailSubject: 'Project Update' },
 ];

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { getSummary, getThreatAnalysis } from '@/app/actions';
+import { getSummary } from '@/app/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,20 +16,16 @@ import {
   Archive,
   ArchiveX,
   ChevronDown,
-  Clock,
   Forward,
   MoreVertical,
   Paperclip,
   Reply,
   ReplyAll,
   Sparkles,
-  ShieldAlert,
   Loader2,
   Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ThreatAnalysisResult } from './threat-analysis-result';
-import type { ThreatAnalysisOutput } from '@/ai/flows/security-dashboard-threat-analysis';
 import {
   Popover,
   PopoverContent,
@@ -45,13 +41,9 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
   const { toast } = useToast();
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
-  const [analysisResult, setAnalysisResult] = React.useState<ThreatAnalysisOutput | null>(null);
-  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = React.useState(false);
-
+  
   React.useEffect(() => {
     setSummary(null);
-    setAnalysisResult(null);
   }, [email]);
 
   const handleSummarize = async () => {
@@ -68,23 +60,6 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
       });
     } else {
       setSummary(result.summary || 'No summary could be generated.');
-    }
-  };
-
-  const handleAnalyze = async () => {
-    if (!email) return;
-    setIsAnalyzing(true);
-    const result = await getThreatAnalysis(email.body);
-    setIsAnalyzing(false);
-    if (result.error) {
-      toast({
-        title: 'Error',
-        description: result.error,
-        variant: 'destructive',
-      });
-    } else {
-      setAnalysisResult(result);
-      setIsAnalysisModalOpen(true);
     }
   };
 
@@ -202,15 +177,6 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
                     </PopoverTrigger>
                     {summary && <PopoverContent className="text-sm">{summary}</PopoverContent>}
                 </Popover>
-
-                <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={isAnalyzing}>
-                    {isAnalyzing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />
-                    )}
-                    Analyze Threats
-                </Button>
             </div>
         </div>
         <Separator />
@@ -238,13 +204,6 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
           </>
         )}
       </div>
-      {analysisResult && (
-        <ThreatAnalysisResult
-          analysis={analysisResult}
-          isOpen={isAnalysisModalOpen}
-          onOpenChange={setIsAnalysisModalOpen}
-        />
-      )}
     </div>
   );
 }

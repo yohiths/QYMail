@@ -1,80 +1,94 @@
-import { analyzeEmailForThreats, type ThreatAnalysisOutput } from '@/ai/flows/security-dashboard-threat-analysis';
-import { emails } from '@/lib/data';
+import { getThreatProfile } from '@/app/actions';
+import { securityEvents } from '@/lib/data';
+import type { SecurityEvent } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChartTooltipContent } from '@/components/ui/chart';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Fingerprint, Shield, UserX, Clock, Siren } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+interface UserProfile {
+  userId: string;
+  threatLevel: 'NORMAL' | 'SUSPICIOUS' | 'HIGH RISK';
+  analysisSummary: string;
+  suspiciousActivity: string[];
+}
 
 export default async function DashboardPage() {
-  const emailsToAnalyze = emails.slice(0, 5); // Analyze first 5 emails for demo
-  const analyses: (ThreatAnalysisOutput & { subject: string; id: string })[] = [];
+  const users = [...new Set(securityEvents.map((e) => e.userId))];
+  const userProfiles: UserProfile[] = [];
 
-  for (const email of emailsToAnalyze) {
-    const result = await analyzeEmailForThreats({ emailContent: email.body });
-    if (!result.error) {
-      analyses.push({ ...result, subject: email.subject, id: email.id });
+  for (const userId of users) {
+    const events = securityEvents.filter((e) => e.userId === userId);
+    const result = await getThreatProfile({ securityEvents: events });
+    if (result && !result.error) {
+      userProfiles.push({ userId, ...result });
     }
   }
 
-  const threatCounts = analyses.reduce(
-    (acc, analysis) => {
-      acc[analysis.threatLevel]++;
-      return acc;
-    },
-    { low: 0, medium: 0, high: 0 }
+  const highRiskProfiles = userProfiles.filter(
+    (p) => p.threatLevel === 'HIGH RISK'
+  );
+  const suspiciousProfiles = userProfiles.filter(
+    (p) => p.threatLevel === 'SUSPICIOUS'
   );
 
-  const chartData = [
-    { level: 'Low', count: threatCounts.low, fill: 'hsl(var(--chart-1))' },
-    { level: 'Medium', count: threatCounts.medium, fill: 'hsl(var(--chart-2))' },
-    { level: 'High', count: threatCounts.high, fill: 'hsl(var(--destructive))' },
-  ];
+  const getThreatLevelVariant = (level: UserProfile['threatLevel']) => {
+    switch (level) {
+      case 'HIGH RISK':
+        return 'destructive';
+      case 'SUSPICIOUS':
+        return 'secondary';
+      default:
+        return 'default';
+    }
+  };
+  
+    const getThreatLevelClass = (level: UserProfile['threatLevel']) => {
+    switch (level) {
+      case 'HIGH RISK':
+        return 'bg-destructive/10 text-destructive';
+      case 'SUSPICIOUS':
+        return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400';
+      default:
+        return 'bg-primary/10 text-primary';
+    }
+  };
 
-  const highThreatEmails = analyses.filter((a) => a.threatLevel === 'high');
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       <header>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Security Dashboard</h1>
-        <p className="text-muted-foreground">AI-powered threat analysis overview</p>
+        <p className="text-muted-foreground">Behavior-based threat analysis</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Threats Analyzed</CardTitle>
-            <CardDescription>Total number of emails scanned for threats.</CardDescription>
+            <CardTitle>Users Monitored</CardTitle>
+            <CardDescription>Total number of users analyzed.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{analyses.length}</p>
+            <p className="text-4xl font-bold">{userProfiles.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>High-Risk Alerts</CardTitle>
-            <CardDescription>Emails flagged with a high threat level.</CardDescription>
+            <CardTitle>High-Risk Users</CardTitle>
+            <CardDescription>Users with unauthorized access patterns.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-destructive">{threatCounts.high}</p>
+            <p className="text-4xl font-bold text-destructive">{highRiskProfiles.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Overall Status</CardTitle>
-            <CardDescription>System-wide threat assessment.</CardDescription>
+            <CardTitle>Suspicious Activity</CardTitle>
+            <CardDescription>Users with abnormal access patterns.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Badge
-              className={
-                threatCounts.high > 0
-                  ? 'bg-destructive/10 text-destructive'
-                  : 'bg-primary/10 text-primary'
-              }
-            >
-              {threatCounts.high > 0 ? 'Action Required' : 'All Clear'}
-            </Badge>
+            <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">{suspiciousProfiles.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -82,57 +96,73 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Threat Distribution</CardTitle>
-            <CardDescription>Breakdown of threats by severity level.</CardDescription>
+            <CardTitle>User Threat Profiles</CardTitle>
+            <CardDescription>AI-powered analysis of user behavior.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="level" />
-                <YAxis allowDecimals={false} />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="space-y-6">
+            {userProfiles.length > 0 ? (
+              userProfiles.map((profile) => (
+                <div key={profile.userId}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                       <Fingerprint className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-mono text-sm">{profile.userId}</span>
+                    </div>
+                     <Badge className={cn('text-xs', getThreatLevelClass(profile.threatLevel))}>
+                      {profile.threatLevel}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground pl-8">{profile.analysisSummary}</p>
+                   {profile.suspiciousActivity.length > 0 && (
+                    <div className="mt-2 pl-8">
+                      {profile.suspiciousActivity.map((activity, index) => (
+                         <Alert key={index} variant="destructive" className="mt-2 text-xs">
+                           <Siren className="h-4 w-4" />
+                           <AlertDescription>{activity}</AlertDescription>
+                         </Alert>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-center py-8">No user data to analyze.</p>
+            )}
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle>High-Threat Email Log</CardTitle>
-            <CardDescription>A log of emails identified as high-risk.</CardDescription>
+            <CardTitle>Recent Security Events</CardTitle>
+            <CardDescription>A log of notable security-related events.</CardDescription>
           </CardHeader>
           <CardContent>
-            {highThreatEmails.length > 0 ? (
-              <div className="space-y-4">
-                {highThreatEmails.map((email) => (
-                  <Alert key={email.id} variant="destructive">
-                    <ShieldAlert className="h-4 w-4" />
-                    <AlertTitle>{email.subject}</AlertTitle>
-                    <AlertDescription>{email.summary}</AlertDescription>
-                  </Alert>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {securityEvents.slice(0, 10).map((event) => (
+                  <TableRow key={event.id}>
+                    <TableCell className="font-mono text-xs">{event.userId}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">{event.action}</Badge>
+                    </TableCell>
+                    <TableCell>
+                       <Badge variant={event.outcome === 'success' ? 'default' : 'secondary'} className={cn('text-xs', event.outcome === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive')}>
+                        {event.outcome}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">{event.reason || 'N/A'}</TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                 <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-10 w-10 mb-2"
-                >
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-                    <path d="m9 12 2 2 4-4" />
-                </svg>
-                <p>No high-threat emails detected.</p>
-              </div>
-            )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>

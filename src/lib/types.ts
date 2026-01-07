@@ -20,3 +20,14 @@ export type Email = {
   attachments: Attachment[];
   mailbox: 'inbox' | 'sent' | 'trash' | 'spam';
 };
+
+export type SecurityEvent = {
+  id: string;
+  userId: string;
+  action: 'send' | 'decrypt';
+  outcome: 'success' | 'failure';
+  reason?: 'unauthorized' | 'session_expired' | 'session_reused' | 'not_found';
+  timestamp: string;
+  emailId: string;
+  emailSubject: string;
+};

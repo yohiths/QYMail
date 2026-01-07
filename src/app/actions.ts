@@ -1,7 +1,7 @@
 'use server';
 
 import { summarizeEmail } from '@/ai/flows/summarize-email';
-import { analyzeEmailForThreats } from '@/ai/flows/security-dashboard-threat-analysis';
+import { analyzeSecurityEvents, type ThreatProfileInput } from '@/ai/flows/security-dashboard-threat-analysis';
 
 export async function getSummary(emailContent: string) {
   try {
@@ -13,12 +13,12 @@ export async function getSummary(emailContent: string) {
   }
 }
 
-export async function getThreatAnalysis(emailContent: string) {
+export async function getThreatProfile(input: ThreatProfileInput) {
   try {
-    const result = await analyzeEmailForThreats({ emailContent });
+    const result = await analyzeSecurityEvents(input);
     return result;
   } catch (error) {
-    console.error('Error analyzing email for threats:', error);
-    return { error: 'Failed to analyze email for threats.' };
+    console.error('Error analyzing security events:', error);
+    return { error: 'Failed to analyze security events.' };
   }
 }
