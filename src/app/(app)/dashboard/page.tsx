@@ -9,7 +9,7 @@ import { Fingerprint, Siren } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, collectionGroup } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 
 interface ThreatProfile extends UserProfile {
@@ -29,20 +29,24 @@ export default function DashboardPage() {
   const { data: users, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
 
   const securityEventsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, `users/${user.uid}/securityEvents`);
-  }, [firestore, user]);
+    if (!firestore) return null;
+    // Use a collection group query to get events from all users.
+    // This requires a Firestore index.
+    return collectionGroup(firestore, `securityEvents`);
+  }, [firestore]);
 
-  const { data: securityEvents, isLoading: eventsLoading } = useCollection<SecurityEvent>(securityEventsQuery);
+  const { data: allSecurityEvents, isLoading: eventsLoading } = useCollection<SecurityEvent>(securityEventsQuery);
 
   const [userProfiles, setUserProfiles] = useState<ThreatProfile[]>([]);
 
   useEffect(() => {
     async function analyzeProfiles() {
-      if (users && securityEvents) {
+      if (users && allSecurityEvents) {
         const profiles: ThreatProfile[] = [];
         for (const u of users) {
-          const userEvents = securityEvents.filter((e) => e.userId === u.email);
+          // The userId in securityEvents is the email, match it with user's email
+          const userEvents = allSecurityEvents.filter((e) => e.userId === u.email);
+          
           if (userEvents.length > 0) {
             const result = await getThreatProfile({ securityEvents: userEvents });
             if (result && !result.error) {
@@ -54,7 +58,7 @@ export default function DashboardPage() {
       }
     }
     analyzeProfiles();
-  }, [users, securityEvents]);
+  }, [users, allSecurityEvents]);
 
 
   const highRiskProfiles = userProfiles.filter(
@@ -170,7 +174,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {securityEvents?.slice(0, 10).map((event) => (
+                {allSecurityEvents?.slice(0, 10).map((event) => (
                   <TableRow key={event.id}>
                     <TableCell className="font-mono text-xs">{event.userId}</TableCell>
                     <TableCell>
