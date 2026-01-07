@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -41,9 +42,13 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
   const { toast } = useToast();
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState<string | null>(null);
+  const [formattedDate, setFormattedDate] = React.useState<string>('');
   
   React.useEffect(() => {
     setSummary(null);
+    if (email) {
+      setFormattedDate(new Date(email.date).toLocaleString());
+    }
   }, [email]);
 
   const handleSummarize = async () => {
@@ -157,7 +162,7 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
             </div>
           </div>
           <div className="ml-auto text-xs text-muted-foreground">
-            {new Date(email.date).toLocaleString()}
+            {formattedDate}
           </div>
         </div>
         <Separator />
