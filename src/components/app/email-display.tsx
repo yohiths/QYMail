@@ -25,6 +25,7 @@ import {
   Sparkles,
   ShieldAlert,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ThreatAnalysisResult } from './threat-analysis-result';
@@ -190,7 +191,7 @@ export function EmailDisplay({ email }: EmailDisplayProps) {
             <div className="flex gap-2">
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" disabled={isSummarizing}>
+                        <Button variant="outline" size="sm" disabled={isSummarizing} onClick={handleSummarize}>
                             {isSummarizing ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
